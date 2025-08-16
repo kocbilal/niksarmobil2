@@ -1,0 +1,44 @@
+name: Build iOS unsigned IPA
+
+on:
+  workflow_dispatch:  # Elle çalıştıracaksın
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods
+
+      - name: Pub get
+        run: flutter pub get
+
+      # İMZA YOK: Sadece derle (release)
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      # IPA paketleme - DİKKAT: IPA'nın tepesinde "Payload" klasörü olmalı
+      - name: Package unsigned IPA
+        run: |
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/Runner.app
+          zip -r NiksarMobil-unsigned.ipa Payload
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NiksarMobil-unsigned
+          path: NiksarMobil-unsigned.ipa

@@ -1,0 +1,8 @@
+﻿# Flutter
+.dart_tool/
+.packages
+build/
+ios/Pods/
+macos/Pods/
+.flutter-plugins
+.flutter-plugins-dependencies
