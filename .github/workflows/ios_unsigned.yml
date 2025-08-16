@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-14  # macOS 14 kullan (daha güncel Xcode)
 
     steps:
       - name: Checkout
@@ -22,12 +22,24 @@ jobs:
       - name: Install CocoaPods
         run: sudo gem install cocoapods
 
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '15.4'  # Güncel Xcode sürümü
+
+      - name: Install iOS Platform
+        run: |
+          sudo xcode-select --switch /Applications/Xcode.app
+          sudo xcodebuild -downloadPlatform iOS
+
       - name: Pub get
         run: flutter pub get
 
       # İMZA YOK: Sadece derle (release)
       - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign
+        run: |
+          flutter clean
+          flutter build ios --release --no-codesign --verbose
 
       # IPA paketleme - DİKKAT: IPA'nın tepesinde "Payload" klasörü olmalı
       - name: Package unsigned IPA
