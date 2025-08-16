@@ -39,6 +39,8 @@ dependencies:
   geolocator: ^9.0.2   # ⬅️ 10.x yerine 9.x kullan
   http: ^1.1.0
   shared_preferences: ^2.2.2
+  torch_light: ^1.1.0
+  audioplayers: ^5.2.1
 
 
 dev_dependencies:
@@ -66,6 +68,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/header.jpg
+    - assets/sounds/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

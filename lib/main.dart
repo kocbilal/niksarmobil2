@@ -8,10 +8,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:torch_light/torch_light.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'language_manager.dart';
 
 void main() async {
@@ -922,11 +925,10 @@ class _HomeNativePageState extends State<HomeNativePage> {
                         label: LanguageManager.instance.getTranslation('emergency'),
                         url: 'acil_durum',
                         onTap: (url) {
-                          // TODO: Acil durum sayfası native olarak tasarlanacak
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(LanguageManager.instance.getTranslation('emergency_coming_soon')),
-                              duration: const Duration(seconds: 2),
+                          // Acil durum sayfasını aç
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const EmergencyPage(),
                             ),
                           );
                         },
@@ -1100,6 +1102,615 @@ class _HomeNativePageState extends State<HomeNativePage> {
   String _stripHtmlTags(String htmlText) {
     return htmlText.replaceAll(RegExp(r'<[^>]*>'), '');
   }
+}
+
+/// Acil Durum Sayfası - Güncellenmiş tasarım
+class EmergencyPage extends StatefulWidget {
+  const EmergencyPage({super.key});
+
+  @override
+  State<EmergencyPage> createState() => _EmergencyPageState();
+}
+
+class _EmergencyPageState extends State<EmergencyPage> {
+  Position? _currentPosition;
+  bool _isLoadingLocation = true;
+  bool _isFlashlightOn = false;
+  bool _isAlarmOn = false;
+  late AudioPlayer _audioPlayer;
+
+  @override
+  void initState() {
+    super.initState();
+    _audioPlayer = AudioPlayer();
+    _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      setState(() {
+        _currentPosition = position;
+        _isLoadingLocation = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingLocation = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F7F9), // Ana uygulama ile aynı arka plan
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Üst başlık - geri tuşu yok
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0x14000000),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    LanguageManager.instance.getTranslation('emergency'),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2C3E50),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    LanguageManager.instance.getTranslation('emergency_subtitle'),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Color(0xFF7F8C8D),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Acil durum seçenekleri - Grid layout
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1.2,
+                  children: [
+                    // Toplanma Noktaları
+                    _buildEmergencyCard(
+                      icon: Icons.location_on,
+                      title: LanguageManager.instance.getTranslation('assembly_points'),
+                      subtitle: LanguageManager.instance.getTranslation('assembly_points_desc'),
+                      color: const Color(0xFF3498DB),
+                      onTap: () => _openAssemblyPoints(),
+                    ),
+                    
+                    // Işığı Aç/Kapat
+                    _buildEmergencyCard(
+                      icon: _isFlashlightOn ? Icons.flashlight_off : Icons.flashlight_on,
+                      title: _isFlashlightOn 
+                          ? LanguageManager.instance.getTranslation('turn_off_light')
+                          : LanguageManager.instance.getTranslation('turn_on_light'),
+                      subtitle: LanguageManager.instance.getTranslation('flashlight_desc'),
+                      color: _isFlashlightOn ? const Color(0xFFE74C3C) : const Color(0xFFF39C12),
+                      onTap: () => _toggleFlashlight(),
+                    ),
+                    
+                    // Ses Çal/Durdur
+                    _buildEmergencyCard(
+                      icon: _isAlarmOn ? Icons.volume_off : Icons.volume_up,
+                      title: _isAlarmOn 
+                          ? LanguageManager.instance.getTranslation('turn_off_alarm')
+                          : LanguageManager.instance.getTranslation('turn_on_alarm'),
+                      subtitle: LanguageManager.instance.getTranslation('alarm_desc'),
+                      color: _isAlarmOn ? const Color(0xFFE74C3C) : const Color(0xFF9B59B6),
+                      onTap: () => _toggleAlarm(),
+                    ),
+                    
+                    // 112'yi Ara
+                    _buildEmergencyCard(
+                      icon: Icons.phone,
+                      title: LanguageManager.instance.getTranslation('call_112'),
+                      subtitle: LanguageManager.instance.getTranslation('call_112_desc'),
+                      color: const Color(0xFFE74C3C),
+                      onTap: () => _callEmergency(),
+                    ),
+                    
+                    // 112'ye Mesaj At
+                    _buildEmergencyCard(
+                      icon: Icons.message,
+                      title: LanguageManager.instance.getTranslation('message_112'),
+                      subtitle: LanguageManager.instance.getTranslation('message_112_desc'),
+                      color: const Color(0xFF27AE60),
+                      onTap: () => _messageEmergency(),
+                    ),
+                    
+
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // Konum bilgisi kartı
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+              BoxShadow(
+                color: const Color(0x14000000),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00BF80).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.my_location,
+                          color: Color(0xFF00BF80),
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        LanguageManager.instance.getTranslation('your_location'),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF2C3E50),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (_isLoadingLocation)
+                    Row(
+                      children: [
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Color(0xFF00BF80),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          LanguageManager.instance.getTranslation('getting_location'),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF7F8C8D),
+                          ),
+                        ),
+                      ],
+                    )
+                  else if (_currentPosition != null) ...[
+                    _buildLocationInfo(
+                      'Latitude',
+                      _currentPosition!.latitude.toStringAsFixed(6),
+                      Icons.north,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildLocationInfo(
+                      'Longitude',
+                      _currentPosition!.longitude.toStringAsFixed(6),
+                      Icons.east,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => _copyCoordinates(),
+                            icon: const Icon(Icons.copy, size: 18),
+                            label: Text(LanguageManager.instance.getTranslation('copy_coordinates')),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00BF80),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      ],
+                    ),
+                  ] else
+                    Text(
+                      LanguageManager.instance.getTranslation('location_error'),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFFE74C3C),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmergencyCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                BoxShadow(
+                  color: const Color(0x14000000),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 24,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF2C3E50),
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF7F8C8D),
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationInfo(String label, String value, IconData icon) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: const Color(0xFF7F8C8D),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF2C3E50),
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Color(0xFF7F8C8D),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _openAssemblyPoints() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => WebTab(
+          initialUrl: LanguageManager.instance.getUrlWithLanguage(
+            'https://niksarmobil.tr/toplanma-yerleri'
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _toggleFlashlight() async {
+    try {
+      if (_isFlashlightOn) {
+        await TorchLight.disableTorch();
+        setState(() {
+          _isFlashlightOn = false;
+        });
+      } else {
+        await TorchLight.enableTorch();
+        setState(() {
+          _isFlashlightOn = true;
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Flaş özelliği kullanılamıyor: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _toggleAlarm() async {
+    try {
+      if (_isAlarmOn) {
+        // Sesi durdur
+        await _audioPlayer.stop();
+        setState(() {
+          _isAlarmOn = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ses durduruldu'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      } else {
+        setState(() {
+          _isAlarmOn = true;
+        });
+        
+        // Alarm sesini çal
+        try {
+          await _audioPlayer.play(AssetSource('sounds/alarm.mp3'));
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Alarm sesi çalınıyor'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          
+          // 10 saniye sonra otomatik durdur
+          Future.delayed(const Duration(seconds: 10), () {
+            if (mounted && _isAlarmOn) {
+              _audioPlayer.stop();
+              setState(() {
+                _isAlarmOn = false;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Ses otomatik olarak durduruldu'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+          });
+        } catch (e) {
+          // Ses dosyası bulunamadıysa titreşim kullan
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Ses dosyası bulunamadı, sadece görsel alarm aktif'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          
+          // 5 saniye sonra otomatik kapat
+          Future.delayed(const Duration(seconds: 5), () {
+            if (mounted && _isAlarmOn) {
+              setState(() {
+                _isAlarmOn = false;
+              });
+            }
+          });
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Alarm özelliği kullanılamıyor: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _callEmergency() async {
+    final uri = Uri.parse('tel:112');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(LanguageManager.instance.getTranslation('cannot_call')),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _messageEmergency() async {
+    if (_currentPosition != null) {
+      try {
+        // Konum bilgisini hazırla
+        final coordinates = '${_currentPosition!.latitude}, ${_currentPosition!.longitude}';
+        final message = 'Acil durum! Konumum: $coordinates';
+        
+        // SMS uygulamasını açmayı dene
+        bool smsOpened = false;
+        
+        try {
+          // Önce tam SMS URI'ı dene (Android için)
+          final fullSmsUri = Uri.parse('sms:112?body=${Uri.encodeComponent(message)}');
+          if (await canLaunchUrl(fullSmsUri)) {
+            await launchUrl(fullSmsUri);
+            smsOpened = true;
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('SMS uygulaması açıldı - 112 numarasına konum bilgisi ile mesaj yazabilirsiniz'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        } catch (e) {
+          print('Tam SMS URI hatası: $e');
+        }
+        
+        // Tam URI çalışmadıysa sadece SMS uygulamasını açmayı dene
+        if (!smsOpened) {
+          try {
+            final simpleSmsUri = Uri.parse('sms:112');
+            if (await canLaunchUrl(simpleSmsUri)) {
+              await launchUrl(simpleSmsUri);
+              smsOpened = true;
+              
+              // Konum bilgisini panoya kopyala
+              await Clipboard.setData(ClipboardData(text: message));
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('SMS uygulaması açıldı. Konum bilgisi panoya kopyalandı, yapıştırabilirsiniz.'),
+                  backgroundColor: Colors.green,
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+            }
+          } catch (e) {
+            print('Basit SMS URI hatası: $e');
+          }
+        }
+        
+        // SMS hiç açılamadıysa konum bilgisini panoya kopyala
+        if (!smsOpened) {
+          await Clipboard.setData(ClipboardData(text: message));
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('SMS açılamadı. Konum bilgisi panoya kopyalandı. Manuel olarak 112\'ye SMS atabilirsiniz.'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      } catch (e) {
+        print('SMS fonksiyonunda hata: $e');
+        
+        // Hata durumunda sadece koordinatları kopyala
+        try {
+          final coordinates = '${_currentPosition!.latitude}, ${_currentPosition!.longitude}';
+          await Clipboard.setData(ClipboardData(text: coordinates));
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Konum bilgisi panoya kopyalandı. Manuel olarak 112\'ye SMS atabilirsiniz.'),
+              backgroundColor: Colors.blue,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } catch (e2) {
+          print('Koordinat kopyalama hatası: $e2');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Konum bilgisi kopyalanamadı: $e'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Konum bilgisi alınamadı. Lütfen konum iznini verin.'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+
+
+  void _copyCoordinates() {
+    if (_currentPosition != null) {
+      final coordinates = '${_currentPosition!.latitude}, ${_currentPosition!.longitude}';
+      Clipboard.setData(ClipboardData(text: coordinates));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(LanguageManager.instance.getTranslation('coordinates_copied')),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+
 }
 
 class _Quick extends StatelessWidget {
@@ -1486,7 +2097,7 @@ class CustomBottomBar extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.08),
+                color: const Color(0x14000000),
                 blurRadius: 15,
                 offset: const Offset(0, -3),
               ),

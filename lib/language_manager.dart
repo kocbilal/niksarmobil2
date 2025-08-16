@@ -126,6 +126,36 @@ const Map<String, String> _turkishTranslations = {
   'emergency_coming_soon': 'Acil durum sayfası yakında eklenecek',
   'no_places_yet': 'Henüz önerilen yer bulunmuyor',
   
+  // Acil durum sayfası
+  'emergency_subtitle': 'Acil durumlarda hızlı erişim',
+  'assembly_points': 'Toplanma Noktaları',
+  'assembly_points_desc': 'Güvenli toplanma yerleri',
+  'turn_on_light': 'Işığı Aç',
+  'turn_off_light': 'Işığı Kapat',
+  'turn_on_alarm': 'Ses Çal',
+  'turn_off_alarm': 'Sesi Durdur',
+  'flashlight_desc': 'Flaş ışığını yak',
+  'alarm_desc': 'Yüksek sesli alarm sesi',
+  'call_112': '112\'yi Ara',
+  'call_112_desc': 'Acil durum numarası',
+  'message_112': '112\'ye Mesaj At',
+  'message_112_desc': 'Konum ile SMS gönder',
+
+  'your_location': 'Konumunuz',
+  'getting_location': 'Konum bilgisi alınıyor...',
+  'latitude': 'Enlem',
+  'longitude': 'Boylam',
+  'accuracy': 'Hassasiyet',
+  'location_error': 'Konum alınamadı',
+  'flashlight_coming_soon': 'Fener özelliği yakında eklenecek',
+  'alarm_coming_soon': 'Alarm özelliği yakında eklenecek',
+  'cannot_call': 'Arama yapılamadı',
+  'cannot_message': 'Mesaj gönderilemedi',
+  'copy_coordinates': 'Koordinatları kopyala',
+  'coordinates_copied': 'Koordinatlar kopyalandı',
+
+
+  
   // Genel
   'loading': 'Yükleniyor...',
   'error': 'Hata',
@@ -169,6 +199,36 @@ const Map<String, String> _englishTranslations = {
   'emergency': 'Emergency',
   'emergency_coming_soon': 'Emergency page coming soon',
   'no_places_yet': 'No recommended places yet',
+  
+  // Emergency page
+  'emergency_subtitle': 'Quick access in emergencies',
+  'assembly_points': 'Assembly Points',
+  'assembly_points_desc': 'Safe assembly locations',
+  'turn_on_light': 'Turn on Light',
+  'turn_off_light': 'Turn off Light',
+  'turn_on_alarm': 'Play Sound',
+  'turn_off_alarm': 'Stop Sound',
+  'flashlight_desc': 'Turn on flashlight',
+  'alarm_desc': 'High volume alarm sound',
+  'call_112': 'Call 112',
+  'call_112_desc': 'Emergency number',
+  'message_112': 'Message 112',
+  'message_112_desc': 'Send SMS with location',
+
+  'your_location': 'Your Location',
+  'getting_location': 'Getting location information...',
+  'latitude': 'Latitude',
+  'longitude': 'Longitude',
+  'accuracy': 'Accuracy',
+  'location_error': 'Could not get location',
+  'flashlight_coming_soon': 'Flashlight feature coming soon',
+  'alarm_coming_soon': 'Alarm feature coming soon',
+  'cannot_call': 'Could not make call',
+  'cannot_message': 'Could not send message',
+  'copy_coordinates': 'Copy coordinates',
+  'coordinates_copied': 'Coordinates copied',
+
+
   
   // Genel
   'loading': 'Loading...',
