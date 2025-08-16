@@ -17,6 +17,96 @@ import 'package:torch_light/torch_light.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'language_manager.dart';
 
+/// Header component that shows logo on main page and page titles on other pages
+class AppHeader extends StatelessWidget {
+  final bool isMainPage;
+  final String? pageTitle;
+  
+  const AppHeader({
+    super.key,
+    this.isMainPage = false,
+    this.pageTitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isMainPage) {
+      // Main page - show logo
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 5,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Image.asset(
+            'assets/logo.png',
+            height: 24,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                height: 24,
+                width: 24,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00BF80),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Icon(
+                  Icons.location_on,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    } else {
+      // Other pages - show page title
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 5,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Back button
+            // Page title (centered, no back button)
+            Expanded(
+              child: Center(
+                child: Text(
+                  pageTitle ?? '',
+                              style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF2C3E50),
+            ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LanguageManager.instance.initialize();
@@ -118,6 +208,7 @@ class _RootShellState extends State<RootShell> with SingleTickerProviderStateMix
   static const int idxOdeme = 8;
   static const int idxRehber = 9;
   static const int idxSearch = 10;
+  static const int idxEmergency = 11;
 
   // WebView key’leri
   final _keyKesfet = GlobalKey<_WebTabState>();
@@ -271,6 +362,7 @@ class _RootShellState extends State<RootShell> with SingleTickerProviderStateMix
       WebTab(key: _keyOdeme, initialUrl: LanguageManager.instance.getUrlWithLanguage('https://niksarmobil.tr/odeme')),
       WebTab(key: _keyRehber, initialUrl: LanguageManager.instance.getUrlWithLanguage('https://niksarmobil.tr/rehber')),
       WebTab(key: _keySearch, initialUrl: 'about:blank'),
+      const EmergencyPage(),
     ];
 
     return Scaffold(
@@ -515,41 +607,71 @@ class _WebTabState extends State<WebTab> with AutomaticKeepAliveClientMixin {
   Widget build(BuildContext context) {
     super.build(context);
     // WebView + iOS kenar geri kaydırma overlay’i
+    // Get page title based on URL
+    String getPageTitle() {
+      final url = widget.initialUrl.toLowerCase();
+      if (url.contains('kesfet') || url.contains('discover')) {
+        return LanguageManager.instance.getTranslation('discover');
+      } else if (url.contains('nobetci') || url.contains('pharmacy')) {
+        return LanguageManager.instance.getTranslation('pharmacy_on_duty');
+      } else if (url.contains('ulasim') || url.contains('transportation')) {
+        return LanguageManager.instance.getTranslation('transportation');
+      } else if (url.contains('belediyem') || url.contains('municipality')) {
+        return LanguageManager.instance.getTranslation('my_municipality');
+      } else if (url.contains('etkinlikler') || url.contains('events')) {
+        return LanguageManager.instance.getTranslation('events');
+      } else if (url.contains('odeme') || url.contains('payment')) {
+        return LanguageManager.instance.getTranslation('online_payment');
+      } else if (url.contains('rehber') || url.contains('directory')) {
+        return LanguageManager.instance.getTranslation('directory');
+      } else if (url.contains('toplanma') || url.contains('assembly')) {
+        return LanguageManager.instance.getTranslation('assembly_points');
+      } else {
+        return 'Niksar Mobil';
+      }
+    }
+    
     final webColumn = Column(
       children: [
-
-        Expanded(child: SafeArea(top: true, bottom: false, child: WebViewWidget(controller: _controller))),
+        // Header with page title
+        AppHeader(
+          isMainPage: false,
+          pageTitle: getPageTitle(),
+        ),
+        Expanded(child: WebViewWidget(controller: _controller)),
       ],
     );
 
-    return WillPopScope(
-      onWillPop: _handleBack,
-      child: Stack(
-        children: [
-          webColumn,
-          if (Platform.isIOS)
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 24, // sol kenar "geri" tutacağı
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onHorizontalDragStart: (_) => _dragDx = 0,
-                onHorizontalDragUpdate: (d) {
-                  if (d.delta.dx > 0) _dragDx += d.delta.dx; // sağa doğru sürükleme
-                },
-                onHorizontalDragEnd: (_) async {
-                  if (_dragDx > 60) {
-                    if (await _controller.canGoBack()) {
-                      await _controller.goBack();
+    return SafeArea(
+      child: WillPopScope(
+        onWillPop: _handleBack,
+        child: Stack(
+          children: [
+            webColumn,
+            if (Platform.isIOS)
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 24, // sol kenar "geri" tutacağı
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onHorizontalDragStart: (_) => _dragDx = 0,
+                  onHorizontalDragUpdate: (d) {
+                    if (d.delta.dx > 0) _dragDx += d.delta.dx; // sağa doğru sürükleme
+                  },
+                  onHorizontalDragEnd: (_) async {
+                    if (_dragDx > 60) {
+                      if (await _controller.canGoBack()) {
+                        await _controller.goBack();
+                      }
                     }
-                  }
-                  _dragDx = 0;
-                },
+                    _dragDx = 0;
+                  },
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -716,6 +838,8 @@ class _HomeNativePageState extends State<HomeNativePage> {
       child: SingleChildScrollView(
         child: Column(
           children: [
+                                // Header with logo
+                    const AppHeader(isMainPage: true),
             // Üst kısım - Arkaplan görseli + karşılama mesajı
             Container(
               height: 280,
@@ -926,11 +1050,11 @@ class _HomeNativePageState extends State<HomeNativePage> {
                         url: 'acil_durum',
                         onTap: (url) {
                           // Acil durum sayfasını aç
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const EmergencyPage(),
-                            ),
-                          );
+                          if (context.findAncestorStateOfType<_RootShellState>() != null) {
+                            context.findAncestorStateOfType<_RootShellState>()!.setState(() {
+                              context.findAncestorStateOfType<_RootShellState>()!._stackIndex = 11; // idxEmergency
+                            });
+                          }
                         },
                       ),
                     ],
@@ -1149,44 +1273,22 @@ class _EmergencyPageState extends State<EmergencyPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Üst başlık - geri tuşu yok
+            // Header with page title
+            AppHeader(
+              isMainPage: false,
+              pageTitle: LanguageManager.instance.getTranslation('emergency'),
+            ),
+            // Subtitle
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(20),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Text(
+                LanguageManager.instance.getTranslation('emergency_subtitle'),
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Color(0xFF7F8C8D),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0x14000000),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    LanguageManager.instance.getTranslation('emergency'),
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2C3E50),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    LanguageManager.instance.getTranslation('emergency_subtitle'),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Color(0xFF7F8C8D),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+                textAlign: TextAlign.center,
               ),
             ),
 
@@ -1790,25 +1892,17 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7F9),
-      appBar: AppBar(
-        title: Text(
-          LanguageManager.instance.getTranslation('settings_title'),
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
-        backgroundColor: const Color(0xFF4CAF50),
-        elevation: 0,
-        automaticallyImplyLeading: false,
-      ),
       body: SafeArea(
         child: Column(
           children: [
+            // Header with page title
+            AppHeader(
+              isMainPage: false,
+              pageTitle: LanguageManager.instance.getTranslation('settings_title'),
+            ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 children: [
                   _buildSettingsGroup([
                     _buildLanguageOption(),
