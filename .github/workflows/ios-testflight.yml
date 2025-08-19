@@ -1,0 +1,63 @@
+name: iOS TestFlight Deployment
+
+on:
+  push:
+    branches: [ v4 ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.24.0'
+        channel: 'stable'
+        
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.0'
+        
+    - name: Install iOS dependencies
+      run: |
+        cd ios
+        pod install
+        
+    - name: Build iOS app
+      run: |
+        flutter build ios --release --no-codesign
+        
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '15.0'
+        
+    - name: Setup Provisioning Profile
+      uses: apple-actions/import-codesigning-certs@v1
+      with:
+        p12-file-base64: ${{ secrets.P12_BASE64 }}
+        p12-password: ${{ secrets.P12_PASSWORD }}
+        
+    - name: Build and Archive
+      run: |
+        cd ios
+        xcodebuild -workspace Runner.xcworkspace \
+          -scheme Runner \
+          -configuration Release \
+          -destination generic/platform=iOS \
+          -archivePath Runner.xcarchive \
+          clean archive
+          
+    - name: Upload to App Store Connect
+      uses: apple-actions/upload-testflight@v1
+      with:
+        app-path: ios/Runner.xcarchive
+        api-key: ${{ secrets.APPSTORE_CONNECT_API_KEY }}
+        api-key-id: ${{ secrets.APPSTORE_CONNECT_API_KEY_ID }}
+        api-issuer-id: ${{ secrets.APPSTORE_CONNECT_ISSUER_ID }}
