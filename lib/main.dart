@@ -11,21 +11,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:app_links/app_links.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:torch_light/torch_light.dart';
 import 'package:audioplayers/audioplayers.dart';
+
 import 'language_manager.dart';
 
 /// Header component that shows logo on main page and page titles on other pages
 class AppHeader extends StatelessWidget {
   final bool isMainPage;
   final String? pageTitle;
+  final VoidCallback? onBackPressed;
   
   const AppHeader({
     super.key,
     this.isMainPage = false,
     this.pageTitle,
+    this.onBackPressed,
   });
 
   @override
@@ -67,43 +71,65 @@ class AppHeader extends StatelessWidget {
           ),
         ),
       );
-    } else {
-      // Other pages - show page title
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 5,
-              offset: Offset(0, 1),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Back button
-            // Page title (centered, no back button)
-            Expanded(
-              child: Center(
-                child: Text(
-                  pageTitle ?? '',
-                              style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF2C3E50),
-            ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+           } else {
+         // Other pages - show page title
+         return Container(
+           width: double.infinity,
+           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+           decoration: const BoxDecoration(
+             color: Colors.white,
+             boxShadow: [
+               BoxShadow(
+                 color: Color(0x14000000),
+                 blurRadius: 5,
+                 offset: Offset(0, 1),
+               ),
+             ],
+           ),
+           child: Row(
+             children: [
+                               // Back button
+                if (onBackPressed != null)
+                  IconButton(
+                    onPressed: onBackPressed,
+                    icon: const Icon(
+                      Icons.arrow_back_ios,
+                      color: Color(0xFF2C3E50),
+                      size: 20,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+               // Page title (centered when no back button, left-aligned when back button exists)
+               Expanded(
+                 child: onBackPressed != null
+                     ? Text(
+                         pageTitle ?? '',
+                         style: const TextStyle(
+                           fontSize: 18,
+                           fontWeight: FontWeight.w600,
+                           color: Color(0xFF2C3E50),
+                         ),
+                         maxLines: 1,
+                         overflow: TextOverflow.ellipsis,
+                       )
+                     : Center(
+                         child: Text(
+                           pageTitle ?? '',
+                           style: const TextStyle(
+                             fontSize: 18,
+                             fontWeight: FontWeight.w600,
+                             color: Color(0xFF2C3E50),
+                           ),
+                           maxLines: 1,
+                           overflow: TextOverflow.ellipsis,
+                         ),
+                       ),
+               ),
+             ],
+           ),
+         );
+       }
   }
 }
 
@@ -113,6 +139,9 @@ void main() async {
   runApp(const NiksarMobilApp());
 }
 
+// Deep link handling için global navigator key
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 class NiksarMobilApp extends StatelessWidget {
   const NiksarMobilApp({super.key});
 
@@ -121,6 +150,7 @@ class NiksarMobilApp extends StatelessWidget {
     return MaterialApp(
       title: 'Niksar Mobil',
       debugShowCheckedModeBanner: false,
+      navigatorKey: navigatorKey,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF00BF80)),
         useMaterial3: true,
@@ -228,6 +258,7 @@ class _RootShellState extends State<RootShell> with SingleTickerProviderStateMix
     super.initState();
     _currentLanguage = LanguageManager.instance.currentLanguage;
     _ensureLocationPermission();
+    _initDeepLinkHandling();
   }
 
   @override
@@ -241,6 +272,40 @@ class _RootShellState extends State<RootShell> with SingleTickerProviderStateMix
     var p = await Geolocator.checkPermission();
     if (p == LocationPermission.denied) {
       await Geolocator.requestPermission();
+    }
+  }
+
+  void _initDeepLinkHandling() async {
+    // Deep link handling
+    final appLinks = AppLinks();
+    
+    // Initial link handling
+    try {
+      final uri = await appLinks.getInitialAppLink();
+      if (uri != null) {
+        _handleDeepLink(uri);
+      }
+    } catch (e) {
+      print('Initial link error: $e');
+    }
+
+    // Link stream handling
+    appLinks.uriLinkStream.listen((Uri uri) {
+      _handleDeepLink(uri);
+    }, onError: (err) {
+      print('Deep link error: $err');
+    });
+  }
+
+  void _handleDeepLink(Uri uri) {
+    if (uri.host == 'niksarmobil.tr' || uri.host.contains('niks act')) {
+      // niksarmobil.tr domain'inden gelen linki uygulama içinde aç
+      final url = uri.toString();
+      
+      // URL'i Search WebView'de aç
+      _keySearch.currentState?.loadUrl(url);
+      setState(() => _stackIndex = idxSearch);
+      _fadePulse();
     }
   }
 
@@ -597,6 +662,13 @@ class _WebTabState extends State<WebTab> with AutomaticKeepAliveClientMixin {
       await _controller.goBack();
       return false;
     }
+    // WebView'de geri gidilemiyorsa ana sayfaya dön
+    if (context.findAncestorStateOfType<_RootShellState>() != null) {
+      context.findAncestorStateOfType<_RootShellState>()!.setState(() {
+        context.findAncestorStateOfType<_RootShellState>()!._stackIndex = 0; // idxHome
+      });
+      return false;
+    }
     return true;
   }
 
@@ -631,16 +703,28 @@ class _WebTabState extends State<WebTab> with AutomaticKeepAliveClientMixin {
       }
     }
     
-    final webColumn = Column(
-      children: [
-        // Header with page title
-        AppHeader(
-          isMainPage: false,
-          pageTitle: getPageTitle(),
-        ),
-        Expanded(child: WebViewWidget(controller: _controller)),
-      ],
-    );
+         final webColumn = Column(
+       children: [
+         // Header with page title
+         AppHeader(
+           isMainPage: false,
+           pageTitle: getPageTitle(),
+           onBackPressed: () async {
+             if (await _controller.canGoBack()) {
+               await _controller.goBack();
+             } else {
+               // WebView'de geri gidilemiyorsa ana sayfaya dön
+               if (context.findAncestorStateOfType<_RootShellState>() != null) {
+                 context.findAncestorStateOfType<_RootShellState>()!.setState(() {
+                   context.findAncestorStateOfType<_RootShellState>()!._stackIndex = 0; // idxHome
+                 });
+               }
+             }
+           },
+         ),
+         Expanded(child: WebViewWidget(controller: _controller)),
+       ],
+     );
 
     return SafeArea(
       child: WillPopScope(
@@ -660,14 +744,21 @@ class _WebTabState extends State<WebTab> with AutomaticKeepAliveClientMixin {
                   onHorizontalDragUpdate: (d) {
                     if (d.delta.dx > 0) _dragDx += d.delta.dx; // sağa doğru sürükleme
                   },
-                  onHorizontalDragEnd: (_) async {
-                    if (_dragDx > 60) {
-                      if (await _controller.canGoBack()) {
-                        await _controller.goBack();
-                      }
-                    }
-                    _dragDx = 0;
-                  },
+                                     onHorizontalDragEnd: (_) async {
+                     if (_dragDx > 60) {
+                       if (await _controller.canGoBack()) {
+                         await _controller.goBack();
+                       } else {
+                         // WebView'de geri gidilemiyorsa ana sayfaya dön
+                         if (context.findAncestorStateOfType<_RootShellState>() != null) {
+                           context.findAncestorStateOfType<_RootShellState>()!.setState(() {
+                             context.findAncestorStateOfType<_RootShellState>()!._stackIndex = 0; // idxHome
+                           });
+                         }
+                       }
+                     }
+                     _dragDx = 0;
+                   },
                 ),
               ),
           ],
@@ -1057,6 +1148,7 @@ class _HomeNativePageState extends State<HomeNativePage> {
                           }
                         },
                       ),
+
                     ],
                   ),
                 ],
@@ -1273,11 +1365,18 @@ class _EmergencyPageState extends State<EmergencyPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header with page title
-            AppHeader(
-              isMainPage: false,
-              pageTitle: LanguageManager.instance.getTranslation('emergency'),
-            ),
+                         // Header with page title
+             AppHeader(
+               isMainPage: false,
+               pageTitle: LanguageManager.instance.getTranslation('emergency'),
+               onBackPressed: () {
+                 if (context.findAncestorStateOfType<_RootShellState>() != null) {
+                   context.findAncestorStateOfType<_RootShellState>()!.setState(() {
+                     context.findAncestorStateOfType<_RootShellState>()!._stackIndex = 0; // idxHome
+                   });
+                 }
+               },
+             ),
             // Subtitle
             Container(
               width: double.infinity,
@@ -1895,11 +1994,18 @@ class _SettingsPageState extends State<SettingsPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header with page title
-            AppHeader(
-              isMainPage: false,
-              pageTitle: LanguageManager.instance.getTranslation('settings_title'),
-            ),
+                         // Header with page title
+             AppHeader(
+               isMainPage: false,
+               pageTitle: LanguageManager.instance.getTranslation('settings_title'),
+               onBackPressed: () {
+                 if (context.findAncestorStateOfType<_RootShellState>() != null) {
+                   context.findAncestorStateOfType<_RootShellState>()!.setState(() {
+                     context.findAncestorStateOfType<_RootShellState>()!._stackIndex = 0; // idxHome
+                   });
+                 }
+               },
+             ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -2263,3 +2369,5 @@ class CustomBottomBar extends StatelessWidget {
     }
   }
 }
+
+

@@ -45,10 +45,21 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<key>NSLocationWhenInUseUsageDescription</key>
+	    <key>NSLocationWhenInUseUsageDescription</key>
     <string>Yakınınızdaki hizmetleri göstermek için konumunuza ihtiyaç var.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
     <string>Yakınınızdaki hizmetleri göstermek için konumunuza ihtiyaç var.</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>niksarmobil</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>niksarmobil</string>
+            </array>
+        </dict>
+    </array>
 
 </dict>
 </plist>

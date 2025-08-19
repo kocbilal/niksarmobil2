@@ -125,6 +125,7 @@ const Map<String, String> _turkishTranslations = {
   'emergency': 'Acil\nDurum',
   'emergency_coming_soon': 'Acil durum sayfası yakında eklenecek',
   'no_places_yet': 'Henüz önerilen yer bulunmuyor',
+
   
   // Acil durum sayfası
   'emergency_subtitle': 'Acil durumlarda hızlı erişim',
@@ -199,6 +200,7 @@ const Map<String, String> _englishTranslations = {
   'emergency': 'Emergency',
   'emergency_coming_soon': 'Emergency page coming soon',
   'no_places_yet': 'No recommended places yet',
+
   
   // Emergency page
   'emergency_subtitle': 'Quick access in emergencies',
