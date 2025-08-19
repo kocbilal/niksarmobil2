@@ -298,15 +298,29 @@ class _RootShellState extends State<RootShell> with SingleTickerProviderStateMix
   }
 
   void _handleDeepLink(Uri uri) {
-    if (uri.host == 'niksarmobil.tr' || uri.host.contains('niks act')) {
-      // niksarmobil.tr domain'inden gelen linki uygulama içinde aç
-      final url = uri.toString();
-      
-      // URL'i Search WebView'de aç
-      _keySearch.currentState?.loadUrl(url);
-      setState(() => _stackIndex = idxSearch);
-      _fadePulse();
+    print('Deep link received: $uri');
+    
+    // Custom scheme handling (niksarmobil://)
+    if (uri.scheme == 'niksarmobil') {
+      if (uri.host == 'open' && uri.queryParameters.containsKey('url')) {
+        final url = uri.queryParameters['url']!;
+        _openWebPage(url);
+      }
+      return;
     }
+    
+    // Universal Links handling (https://niksarmobil.tr)
+    if (uri.scheme == 'https' && uri.host == 'niksarmobil.tr') {
+      print('Universal Link detected: ${uri.toString()}');
+      _openWebPage(uri.toString());
+    }
+  }
+  
+  void _openWebPage(String url) {
+    // URL'i Search WebView'de aç
+    _keySearch.currentState?.loadUrl(url);
+    setState(() => _stackIndex = idxSearch);
+    _fadePulse();
   }
 
   Future<void> _fadePulse() async {
