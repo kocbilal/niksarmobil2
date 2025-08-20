@@ -8,7 +8,7 @@
     <uses-feature android:name="android.hardware.camera" android:required="true" />
 
     <application
-        android:label="niksar_webview"
+        android:label="Niksar Mobil"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
